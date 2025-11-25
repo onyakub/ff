@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inferno Cup - Global</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Fonts & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Firebase SDK (Google's Cloud Database) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // ==========================================
+        // ⚠️ আপনার FIREBASE CONFIG এখানে বসান ⚠️
+        // Firebase Console -> Project Settings -> General -> Your apps -> SDK setup and configuration
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyD... (আপনার KEY বসান)",
+            authDomain: "your-project.firebaseapp.com",
+            projectId: "your-project-id",
+            storageBucket: "your-project.appspot.com",
+            messagingSenderId: "123456...",
+            appId: "1:123456..."
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Global Variables available to window
+        window.db = db;
+        window.doc = doc;
+        window.setDoc = setDoc;
+        window.getDoc = getDoc;
+        window.onSnapshot = onSnapshot;
+
+        // Start App Logic
+        initRealtimeUpdates();
+    </script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { ff: { yellow: '#FFCC00', orange: '#FF5500' } },
+                    fontFamily: { heading: ['"Black Ops One"', 'cursive'], tech: ['"Rajdhani"', 'sans-serif'] },
+                    backgroundImage: { 'hero': "linear-gradient(to bottom, rgba(0,0,0,0.5), #050505), url('https://wallpapers.com/images/hd/free-fire-max-pictures-q439w2u317006764.jpg')" }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { background-color: #050505; color: white; }
+        .glass { background: rgba(20, 20, 20, 0.8); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .input-g { background: #111; border: 1px solid #333; color: white; width: 100%; padding: 10px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+
+    <!-- Navbar -->
+    <nav class="fixed w-full z-50 bg-black/90 border-b border-gray-800 p-4 flex justify-between items-center">
+        <span class="text-2xl font-heading italic">INFERNO<span class="text-ff-orange">CUP</span></span>
+        <button onclick="document.getElementById('loginModal').classList.remove('hidden')" class="text-white"><i class="fa-solid fa-lock"></i></button>
+    </nav>
+
+    <!-- Admin Login Modal -->
+    <div id="loginModal" class="hidden fixed inset-0 z-[60] flex items-center justify-center bg-black/95">
+        <div class="glass p-8 rounded text-center">
+            <h2 class="text-xl font-heading text-ff-orange mb-4">ADMIN ONLY</h2>
+            <input type="password" id="adminPass" class="input-g mb-4" placeholder="Password">
+            <button onclick="checkAdmin()" class="bg-ff-orange text-black font-bold py-2 px-6 rounded">LOGIN</button>
+            <button onclick="document.getElementById('loginModal').classList.add('hidden')" class="block mt-4 text-gray-500 text-xs w-full">CANCEL</button>
+        </div>
+    </div>
+
+    <!-- ADMIN PANEL (Cloud Connected) -->
+    <div id="adminPanel" class="hidden fixed inset-0 z-[70] bg-black overflow-y-auto p-6">
+        <div class="max-w-3xl mx-auto mt-10">
+            <div class="flex justify-between mb-6 border-b border-gray-800 pb-4">
+                <h1 class="text-3xl font-heading text-ff-yellow">CLOUD CONTROL</h1>
+                <button onclick="document.getElementById('adminPanel').classList.add('hidden')" class="text-red-500 font-bold">CLOSE</button>
+            </div>
+            
+            <div class="grid gap-4 bg-gray-900 p-6 rounded">
+                <h3 class="text-xl font-bold text-white">🏆 Tournament Settings</h3>
+                <input id="adm_entry" class="input-g" placeholder="Entry Fee (e.g. 50 BDT)">
+                <input id="adm_time" class="input-g" placeholder="Match Time">
+                <input id="adm_map" class="input-g" placeholder="Map Name">
+                
+                <h3 class="text-xl font-bold text-white mt-4">💰 Prizes</h3>
+                <input id="adm_total" class="input-g" placeholder="Total Prize">
+                <input id="adm_1st" class="input-g" placeholder="1st Prize">
+                <input id="adm_2nd" class="input-g" placeholder="2nd Prize">
+                <input id="adm_3rd" class="input-g" placeholder="3rd Prize">
+
+                <h3 class="text-xl font-bold text-ff-orange mt-4">🔐 Security</h3>
+                <input id="adm_code" class="input-g border-ff-orange" placeholder="Secret Code (e.g. FFWIN)">
+                <input id="adm_bkash" class="input-g" placeholder="bKash Number">
+
+                <button onclick="saveToCloud()" class="bg-green-600 hover:bg-green-500 text-white font-bold py-3 mt-4 rounded shadow-[0_0_15px_#00ff00]">
+                    UPDATE GLOBAL DATA ☁️
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- WEBSITE UI (Updates Automatically) -->
+    <header class="h-screen bg-hero bg-cover bg-center flex items-center justify-center text-center px-4 relative">
+        <div class="relative z-10">
+            <div class="bg-ff-orange text-black font-bold px-3 py-1 inline-block mb-4 rounded text-sm">GLOBAL SERVER LIVE</div>
+            <h1 class="text-5xl md:text-8xl font-heading text-white mb-2 shadow-lg">BATTLE ROYALE</h1>
+            <p class="text-xl text-gray-300 font-tech mb-8">
+                MAP: <span id="ui_map">LOADING...</span> | FEE: <span id="ui_fee" class="text-ff-yellow font-bold">...</span>
+            </p>
+            <a href="#reg" class="bg-gradient-to-r from-ff-orange to-red-600 text-white font-heading text-2xl px-8 py-4 rounded hover:scale-105 transition block w-fit mx-auto">
+                REGISTER NOW
+            </a>
+        </div>
+    </header>
+
+    <!-- Info Section -->
+    <section class="py-16 bg-black">
+        <div class="max-w-6xl mx-auto px-4 grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+            <div class="glass p-6 rounded-xl border-t-4 border-ff-yellow">
+                <h3 class="text-xl font-heading text-ff-yellow">PRIZE POOL</h3>
+                <p class="text-2xl font-bold" id="ui_total">...</p>
+            </div>
+            <div class="glass p-6 rounded-xl border-t-4 border-ff-orange">
+                <h3 class="text-xl font-heading text-ff-orange">MATCH TIME</h3>
+                <p class="text-xl font-bold" id="ui_time">...</p>
+            </div>
+            <div class="glass p-6 rounded-xl border-t-4 border-red-600">
+                <h3 class="text-xl font-heading text-red-600">MAP</h3>
+                <p class="text-xl font-bold" id="ui_map_box">...</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Rewards -->
+    <section class="py-16 text-center">
+        <h2 class="text-4xl font-heading text-white mb-10">REWARDS</h2>
+        <div class="flex flex-col md:flex-row justify-center gap-4 max-w-4xl mx-auto px-4">
+            <div class="glass p-6 w-full rounded border border-gray-600">
+                <h3 class="text-gray-400 font-heading">2ND</h3>
+                <p class="text-2xl font-bold" id="ui_2nd">...</p>
+            </div>
+            <div class="glass p-8 w-full rounded border-2 border-ff-yellow bg-ff-yellow/10 scale-105">
+                <h3 class="text-ff-yellow font-heading text-2xl">CHAMPION</h3>
+                <p class="text-4xl font-bold" id="ui_1st">...</p>
+            </div>
+            <div class="glass p-6 w-full rounded border border-gray-600">
+                <h3 class="text-gray-400 font-heading">3RD</h3>
+                <p class="text-2xl font-bold" id="ui_3rd">...</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Registration -->
+    <section id="reg" class="py-20 bg-[#0a0a0a]">
+        <div class="max-w-xl mx-auto px-4">
+            
+            <!-- FORM -->
+            <div id="formBox" class="glass p-8 rounded-xl">
+                <h2 class="text-3xl font-heading text-ff-orange text-center mb-6">JOIN SQUAD</h2>
+                <div class="space-y-4">
+                    <input id="squad" class="input-g" placeholder="Squad Name">
+                    <input id="leader" class="input-g" placeholder="Leader Name">
+                    <input id="uid" class="input-g" type="number" placeholder="Leader UID">
+                    
+                    <div class="bg-gray-900 p-4 rounded border border-dashed border-gray-700 mt-4">
+                        <div class="flex justify-between mb-2">
+                            <span class="text-[#E2136E] font-bold">bKash Personal</span>
+                            <span id="ui_fee_small" class="text-white text-xs">...</span>
+                        </div>
+                        <div class="bg-black p-2 rounded flex justify-between items-center mb-2">
+                            <span id="ui_bkash" class="font-mono text-lg select-all">Loading...</span>
+                            <button onclick="copyBkash()" class="text-ff-yellow text-xs font-bold">COPY</button>
+                        </div>
+                        <input id="trx" class="input-g text-center border-[#E2136E]" placeholder="Enter TrxID">
+                    </div>
+
+                    <button onclick="register()" class="w-full bg-ff-orange text-black font-heading text-xl py-3 rounded hover:bg-white transition">
+                        CONFIRM & WHATSAPP <i class="fa-brands fa-whatsapp"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- DASHBOARD -->
+            <div id="dashBox" class="hidden glass p-8 rounded-xl text-center relative">
+                <div id="statusBadge" class="absolute top-4 right-4 bg-yellow-500/20 text-yellow-500 border border-yellow-500 text-xs px-2 py-1 rounded">PENDING</div>
+                <h2 class="text-2xl font-heading" id="d_squad">...</h2>
+                <p class="text-gray-400 text-sm">UID: <span id="d_uid">...</span></p>
+                <div class="bg-black/50 p-3 my-4 rounded">
+                    <p class="text-xs text-gray-500">TRX ID</p>
+                    <p class="text-lg font-mono text-ff-orange" id="d_trx">...</p>
+                </div>
+
+                <div id="verifyArea" class="border-t border-gray-700 pt-4">
+                    <p class="text-sm text-gray-300 mb-2">Enter Secret Code from Admin:</p>
+                    <div class="flex gap-2 justify-center">
+                        <input id="userCode" class="input-g text-center w-32 uppercase" placeholder="CODE">
+                        <button onclick="verify()" class="bg-gray-700 px-4 rounded font-bold">OK</button>
+                    </div>
+                </div>
+
+                <div id="successMsg" class="hidden mt-4 bg-green-900/30 p-3 rounded border border-green-500">
+                    <h3 class="text-green-400 font-bold">VERIFIED! ✅</h3>
+                    <p class="text-xs">Room details will be sent to WhatsApp.</p>
+                </div>
+                
+                <button onclick="reset()" class="text-red-500 text-xs mt-6 underline">Reset</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- LOGIC SCRIPT -->
+    <script>
+        // --- ADMIN AUTH ---
+        function checkAdmin() {
+            if(document.getElementById('adminPass').value === "admin123") {
+                document.getElementById('loginModal').classList.add('hidden');
+                document.getElementById('adminPanel').classList.remove('hidden');
+                loadAdminInputs();
+            } else {
+                alert("Wrong Password!");
+            }
+        }
+
+        // --- FIREBASE LOGIC ---
+        let globalConfig = {};
+
+        // 1. Listen to Database Changes (Real-time)
+        function initRealtimeUpdates() {
+            // Check if Firebase is loaded
+            if(!window.onSnapshot) { console.log("Waiting for Firebase..."); setTimeout(initRealtimeUpdates, 500); return; }
+
+            const docRef = window.doc(window.db, "tournament", "config");
+            
+            window.onSnapshot(docRef, (doc) => {
+                if (doc.exists()) {
+                    globalConfig = doc.data();
+                    applyConfigToUI(globalConfig);
+                } else {
+                    // Create default if not exists
+                    createDefaultConfig();
+                }
+            });
+
+            // Check Local Storage for Dashboard
+            const saved = localStorage.getItem('ff_player_data');
+            if(saved) showDashboard(JSON.parse(saved));
+        }
+
+        // 2. Create Default Data (First Time Run)
+        async function createDefaultConfig() {
+            const defaultData = {
+                fee: "50 BDT", time: "FRIDAY 9PM", map: "BERMUDA",
+                prize_total: "2000 BDT", p1: "1000", p2: "600", p3: "400",
+                code: "FFWIN", bkash: "01799953059"
+            };
+            await window.setDoc(window.doc(window.db, "tournament", "config"), defaultData);
+        }
+
+        // 3. Update Website Text
+        function applyConfigToUI(data) {
+            document.getElementById('ui_fee').innerText = data.fee;
+            document.getElementById('ui_fee_small').innerText = data.fee;
+            document.getElementById('ui_time').innerText = data.time;
+            document.getElementById('ui_map').innerText = data.map;
+            document.getElementById('ui_map_box').innerText = data.map;
+            document.getElementById('ui_total').innerText = data.prize_total;
+            document.getElementById('ui_1st').innerText = data.p1;
+            document.getElementById('ui_2nd').innerText = data.p2;
+            document.getElementById('ui_3rd').innerText = data.p3;
+            document.getElementById('ui_bkash').innerText = data.bkash;
+        }
+
+        // 4. Load Admin Panel with Current Data
+        function loadAdminInputs() {
+            document.getElementById('adm_entry').value = globalConfig.fee;
+            document.getElementById('adm_time').value = globalConfig.time;
+            document.getElementById('adm_map').value = globalConfig.map;
+            document.getElementById('adm_total').value = globalConfig.prize_total;
+            document.getElementById('adm_1st').value = globalConfig.p1;
+            document.getElementById('adm_2nd').value = globalConfig.p2;
+            document.getElementById('adm_3rd').value = globalConfig.p3;
+            document.getElementById('adm_code').value = globalConfig.code;
+            document.getElementById('adm_bkash').value = globalConfig.bkash;
+        }
+
+        // 5. Save Admin Changes to Cloud
+        async function saveToCloud() {
+            const newData = {
+                fee: document.getElementById('adm_entry').value,
+                time: document.getElementById('adm_time').value,
+                map: document.getElementById('adm_map').value,
+                prize_total: document.getElementById('adm_total').value,
+                p1: document.getElementById('adm_1st').value,
+                p2: document.getElementById('adm_2nd').value,
+                p3: document.getElementById('adm_3rd').value,
+                code: document.getElementById('adm_code').value,
+                bkash: document.getElementById('adm_bkash').value
+            };
+
+            await window.setDoc(window.doc(window.db, "tournament", "config"), newData);
+            alert("Updated Globally! ☁️");
+            document.getElementById('adminPanel').classList.add('hidden');
+        }
+
+        // --- USER ACTIONS ---
+        function copyBkash() {
+            navigator.clipboard.writeText(globalConfig.bkash);
+            alert("Number Copied!");
+        }
+
+        function register() {
+            const squad = document.getElementById('squad').value;
+            const leader = document.getElementById('leader').value;
+            const uid = document.getElementById('uid').value;
+            const trx = document.getElementById('trx').value;
+
+            if(!squad || !leader || !uid || !trx) { alert("Fill all details!"); return; }
+
+            const userData = { squad, leader, uid, trx, status: 'pending' };
+            localStorage.setItem('ff_player_data', JSON.stringify(userData));
+
+            // Send to WhatsApp
+            const msg = `🔥 *REGISTRATION*\nSquad: ${squad}\nUID: ${uid}\nTrx: ${trx}\nFee: ${globalConfig.fee}\nSent to: ${globalConfig.bkash}`;
+            window.location.href = `https://wa.me/88${globalConfig.bkash}?text=${encodeURIComponent(msg)}`;
+
+            showDashboard(userData);
+        }
+
+        function showDashboard(data) {
+            document.getElementById('formBox').classList.add('hidden');
+            document.getElementById('dashBox').classList.remove('hidden');
+            document.getElementById('d_squad').innerText = data.squad;
+            document.getElementById('d_uid').innerText = data.uid;
+            document.getElementById('d_trx').innerText = data.trx;
+            
+            if(data.status === 'approved') setVerifiedUI();
+        }
+
+        function verify() {
+            const input = document.getElementById('userCode').value;
+            // Verify against CLOUD Code
+            if(input === globalConfig.code) {
+                const data = JSON.parse(localStorage.getItem('ff_player_data'));
+                data.status = 'approved';
+                localStorage.setItem('ff_player_data', JSON.stringify(data));
+                setVerifiedUI();
+            } else {
+                alert("Wrong Code! Contact Admin.");
+            }
+        }
+
+        function setVerifiedUI() {
+            document.getElementById('verifyArea').classList.add('hidden');
+            document.getElementById('successMsg').classList.remove('hidden');
+            const badge = document.getElementById('statusBadge');
+            badge.innerText = "VERIFIED ✅";
+            badge.className = "absolute top-4 right-4 bg-green-500 text-black font-bold px-3 py-1 rounded shadow-lg";
+        }
+
+        function reset() {
+            if(confirm("Reset?")) { localStorage.removeItem('ff_player_data'); location.reload(); }
+        }
+    </script>
+</body>
+</html>
+
+
